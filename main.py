@@ -1,11 +1,10 @@
 import numpy as np
 from sklearn.mixture import GaussianMixture
 import time
-import matplotlib.pyplot as plt
 
 from data_generation import create_custom_dataset
-from gmm_model import GMM
-from visualization import plot_comparison
+from GMM import GMM
+from visualization import plot_comparison, plot_model_selection, plot_log_likelihood_evolution
 from metrics import compare_models, evaluate_clustering
 
 def fit_and_evaluate_gmm(gmm, X, true_labels, name):
@@ -57,11 +56,11 @@ def main():
     true_labels = np.argmin(np.linalg.norm(X[:, np.newaxis] - true_centers, axis=2), axis=1)
 
     # Fit and evaluate custom GMM
-    custom_gmm = GMM(n_components=4, n_iter=100, n_init=5, random_state=42)
+    custom_gmm = GMM(n_components=4, covariance_type='full', n_iter=100, random_state=42)
     custom_gmm, custom_labels, custom_metrics = fit_and_evaluate_gmm(custom_gmm, X, true_labels, "Custom")
 
     # Fit and evaluate scikit-learn GMM
-    sklearn_gmm = GaussianMixture(n_components=4, n_init=5, random_state=42)
+    sklearn_gmm = GaussianMixture(n_components=4, covariance_type='full', n_init=1, random_state=42)
     sklearn_gmm, sklearn_labels, sklearn_metrics = fit_and_evaluate_gmm(sklearn_gmm, X, true_labels, "Scikit-learn")
 
     # Compare models
@@ -71,24 +70,24 @@ def main():
                    custom_model=custom_gmm, sklearn_model=sklearn_gmm)
 
     # Visualize results
-    plot_comparison(X, true_labels, custom_labels, sklearn_labels)
+    plot_comparison(X, true_labels, custom_gmm, sklearn_gmm)
 
     # Print model parameters
     print_model_parameters(custom_gmm, sklearn_gmm, true_centers)
 
-    # Optional: Add model selection using BIC/AIC
+    # Model selection using BIC/AIC
     n_components_range = range(1, 10)
-    bic_scores = [GMM(n_components=n, random_state=42).fit(X).bic(X) for n in n_components_range]
-    aic_scores = [GMM(n_components=n, random_state=42).fit(X).aic(X) for n in n_components_range]
+    bic_scores = []
+    aic_scores = []
+    for n in n_components_range:
+        gmm = GMM(n_components=n, covariance_type='full', random_state=42)
+        gmm.fit(X)
+        bic_scores.append(gmm.bic(X))
+        aic_scores.append(gmm.aic(X))
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(n_components_range, bic_scores, label='BIC')
-    plt.plot(n_components_range, aic_scores, label='AIC')
-    plt.xlabel('Number of components')
-    plt.ylabel('Score')
-    plt.title('Model Selection Scores')
-    plt.legend()
-    plt.show()
+    plot_model_selection(n_components_range, bic_scores, aic_scores)
+
+    # Note: Log-likelihood evolution is not available in the current GMM implementation
 
 if __name__ == "__main__":
     main()
